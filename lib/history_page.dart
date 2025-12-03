@@ -13,12 +13,21 @@ class _HistoryPageState extends State<HistoryPage> {
   String searchQuery = "";
   String selectedType = "Antrian";
 
-  final List<String> types = [
-    "Antrian",
-    "Proses",
-    "Siap Ambil",
-    "Selesai",
-  ];
+  final List<String> types = ["Antrian", "Proses", "Siap Ambil", "Selesai"];
+
+  Widget _statusOption(String docId, String status) {
+    return ListTile(
+      title: Text(status, style: const TextStyle(color: Colors.white)),
+      onTap: () async {
+        await FirebaseFirestore.instance
+            .collection('transactions')
+            .doc(docId)
+            .update({'status': status});
+
+        Navigator.pop(context);
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,8 +79,10 @@ class _HistoryPageState extends State<HistoryPage> {
                     onTap: () => setState(() => selectedType = e),
                     child: Container(
                       margin: const EdgeInsets.only(right: 10),
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: active ? Colors.tealAccent : Colors.white10,
                         borderRadius: BorderRadius.circular(20),
@@ -106,7 +117,9 @@ class _HistoryPageState extends State<HistoryPage> {
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const Center(
-                      child: CircularProgressIndicator(color: Colors.tealAccent),
+                      child: CircularProgressIndicator(
+                        color: Colors.tealAccent,
+                      ),
                     );
                   }
 
@@ -130,21 +143,24 @@ class _HistoryPageState extends State<HistoryPage> {
                     itemBuilder: (context, index) {
                       final data = docs[index].data() as Map<String, dynamic>;
                       final Timestamp? masukTs = data['timestamp'];
-                      final DateTime masuk =
-                          masukTs != null ? masukTs.toDate() : DateTime.now();
+                      final DateTime masuk = masukTs != null
+                          ? masukTs.toDate()
+                          : DateTime.now();
 
                       final int durasiJam =
                           int.tryParse(data['time']?.toString() ?? '10') ?? 10;
 
-                      final DateTime selesai =
-                          masuk.add(Duration(hours: durasiJam));
+                      final DateTime selesai = masuk.add(
+                        Duration(hours: durasiJam),
+                      );
 
                       final double berat =
                           double.tryParse(data['weight']?.toString() ?? '0') ??
-                              0;
+                          0;
 
                       final double price =
-                          double.tryParse(data['price']?.toString() ?? '0') ?? 0;
+                          double.tryParse(data['price']?.toString() ?? '0') ??
+                          0;
 
                       final double total = berat * price;
 
@@ -176,107 +192,112 @@ class _HistoryPageState extends State<HistoryPage> {
     required DateTime selesai,
     required String docId,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF203A43),
-            Color(0xFF2C5364),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return GestureDetector(
+      onTap: () => _showStatusDialog(docId),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF203A43), Color(0xFF2C5364)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white12),
         ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ================= LEFT DATA =================
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // NAMA + TOTAL
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      data['name'] ?? '-',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    Row(
-                      children: [
-                        const Icon(Icons.payments, color: Colors.tealAccent),
-                        const SizedBox(width: 4),
-                        Text(
-                          "Rp ${NumberFormat('#,###', 'id_ID').format(total)}",
-                          style: const TextStyle(
-                            color: Colors.tealAccent,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ================= LEFT DATA =================
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // NAMA + TOTAL
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        data['name'] ?? '-',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
 
-                const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(Icons.payments, color: Colors.tealAccent),
+                          const SizedBox(width: 4),
+                          Text(
+                            "Rp ${NumberFormat('#,###', 'id_ID').format(total)}",
+                            style: const TextStyle(
+                              color: Colors.tealAccent,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
 
-                // MASUK
-                _iconRow(Icons.calendar_month, "Masuk",
-                    DateFormat("dd MMM yyyy, HH:mm").format(masuk)),
+                  const SizedBox(height: 10),
 
-                // ESTIMASI
-                _iconRow(Icons.timer, "Estimasi",
-                    DateFormat("dd MMM yyyy, HH:mm").format(selesai)),
+                  // MASUK
+                  _iconRow(
+                    Icons.calendar_month,
+                    "Masuk",
+                    DateFormat("dd MMM yyyy, HH:mm").format(masuk),
+                  ),
 
-                // DISKON
-                _iconRow(Icons.discount, "Diskon",
-                    "${data['diskon'] ?? 0}%"),
+                  // ESTIMASI
+                  _iconRow(
+                    Icons.timer,
+                    "Estimasi",
+                    DateFormat("dd MMM yyyy, HH:mm").format(selesai),
+                  ),
 
-                // STATUS TRANSAKSI
-                _statusBadge(
-                  icon: Icons.flag,
-                  title: "Status",
-                  value: data['status'],
-                  color: _statusColor(data['status']),
-                ),
+                  // DISKON
+                  _iconRow(Icons.discount, "Diskon", "${data['diskon'] ?? 0}%"),
 
-                // STATUS BAYAR
-                _statusBadge(
-                  icon: Icons.check_circle,
-                  title: "Pembayaran",
-                  value: data['bayar'] != null && data['bayar'] >= total
-                      ? "Lunas"
-                      : "Bayar nanti",
-                  color: data['bayar'] != null && data['bayar'] >= total
-                      ? Colors.green
-                      : Colors.orange,
-                ),
-              ],
+                  // STATUS TRANSAKSI
+                  _statusBadge(
+                    icon: Icons.flag,
+                    title: "Status",
+                    value: data['status'],
+                    color: _statusColor(data['status']),
+                  ),
+
+                  // STATUS BAYAR
+                  _statusBadge(
+                    icon: Icons.check_circle,
+                    title: "Pembayaran",
+                    value: data['bayar'] != null && data['bayar'] >= total
+                        ? "Lunas"
+                        : "Bayar nanti",
+                    color: data['bayar'] != null && data['bayar'] >= total
+                        ? Colors.green
+                        : Colors.orange,
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // ================= DELETE BUTTON =================
-          IconButton(
-            onPressed: () {
-              FirebaseFirestore.instance
-                  .collection('transactions')
-                  .doc(docId)
-                  .delete();
-            },
-            icon: const Icon(Icons.delete, color: Colors.redAccent, size: 28),
-          ),
-        ],
+            // ================= DELETE BUTTON =================
+            IconButton(
+              onPressed: () {
+                FirebaseFirestore.instance
+                    .collection('transactions')
+                    .doc(docId)
+                    .delete();
+              },
+              icon: const Icon(Icons.delete, color: Colors.redAccent, size: 28),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -325,10 +346,7 @@ class _HistoryPageState extends State<HistoryPage> {
           const SizedBox(width: 6),
           Text(
             "$title: $value",
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -351,5 +369,29 @@ class _HistoryPageState extends State<HistoryPage> {
       default:
         return Colors.white70;
     }
+  }
+
+  void _showStatusDialog(String docId) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF203A43),
+          title: const Text(
+            "Ubah Status",
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _statusOption(docId, "Antrian"),
+              _statusOption(docId, "Proses"),
+              _statusOption(docId, "Siap Ambil"),
+              _statusOption(docId, "Selesai"),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

@@ -434,7 +434,7 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                                   .collection('transactions')
                                   .doc(widget.transaction.id)
                                   .update({
-                                    'status': 'Lunas',
+                                    'status': 'Antrian',
                                     'bayar': bayar,
                                     'kembalian': kembalian < 0 ? 0 : kembalian,
                                   });
@@ -458,7 +458,7 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                               children: [
                                 ElevatedButton(
                                   onPressed: () =>
-                                      _updateStatus(context, 'Lunas'),
+                                      _updateStatus(context, 'Antrian'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
                                     elevation: 0,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:intl/intl.dart';
+import 'thermal_printer.dart';
 
 String generateNota({
   required String namaToko,
@@ -89,47 +90,49 @@ class FinishPage extends StatelessWidget {
           ),
         ),
       ),
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.black,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _bottomButton(
-                icon: Icons.check_circle,
-                label: 'Selesai',
-                onTap: () {
-                  Navigator.popUntil(context, (route) => route.isFirst);
-                },
-              ),
-              _bottomButton(
-                icon: Icons.print,
-                label: 'Cetak',
-                onTap: () {
-                  final nota = generateNota(
-                    namaToko: "ASSYIFA TECH",
-                    alamat: "Jl. Pendidikan No. 12",
-                    telepon: "0895-xxxx-xxxx",
-                    total: total,
-                    bayar: dp,
-                    tanggal: DateFormat(
-                      'dd/MM/yyyy HH:mm',
-                    ).format(DateTime.now()),
-                    kodeTransaksi:
-                        "TRX-${DateTime.now().millisecondsSinceEpoch}",
-                  );
-                  _showNotaSiapCetak(context, nota);
-                },
-              ),
-              _bottomButton(
-                icon: Icons.share,
-                label: 'Bagikan',
-                onTap: () {
-                  _showBagikanDialog(context);
-                },
-              ),
-            ],
+      bottomNavigationBar: SafeArea(
+        child: BottomAppBar(
+          color: Colors.black,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _bottomButton(
+                  icon: Icons.check_circle,
+                  label: 'Selesai',
+                  onTap: () {
+                    Navigator.popUntil(context, (route) => route.isFirst);
+                  },
+                ),
+                _bottomButton(
+                  icon: Icons.print,
+                  label: 'Cetak',
+                  onTap: () {
+                    final nota = generateNota(
+                      namaToko: "ASSYIFA TECH",
+                      alamat: "Jl. Pendidikan No. 12",
+                      telepon: "0895-xxxx-xxxx",
+                      total: total,
+                      bayar: dp,
+                      tanggal: DateFormat(
+                        'dd/MM/yyyy HH:mm',
+                      ).format(DateTime.now()),
+                      kodeTransaksi:
+                          "TRX-${DateTime.now().millisecondsSinceEpoch}",
+                    );
+                    _showNotaSiapCetak(context, nota);
+                  },
+                ),
+                _bottomButton(
+                  icon: Icons.share,
+                  label: 'Bagikan',
+                  onTap: () {
+                    _showBagikanDialog(context);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -146,11 +149,14 @@ class FinishPage extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.tealAccent, size: 28),
-          const SizedBox(height: 4),
+          Icon(icon, color: Colors.tealAccent, size: 24), // dulu 28
+          const SizedBox(height: 2), // dulu 4
           Text(
             label,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12, // dulu 14
+            ),
           ),
         ],
       ),
@@ -186,12 +192,28 @@ class FinishPage extends StatelessWidget {
             ),
           ),
           TextButton(
-            onPressed: () {
-              // Di sini taruh logika cetak/print atau kirim ke plugin printing
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Perintah cetak dikirim (mock).')),
-              );
+            onPressed: () async {
+              try {
+                await ThermalPrinter.printNota(
+                  namaToko: "ASSYIFA TECH",
+                  alamat: "Jl. Pendidikan No. 12",
+                  telepon: "0895-xxxx-xxxx",
+                  total: total,
+                  bayar: dp,
+                  tanggal: DateFormat(
+                    'dd/MM/yyyy HH:mm',
+                  ).format(DateTime.now()),
+                  kodeTransaksi: "TRX-${DateTime.now().millisecondsSinceEpoch}",
+                );
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Struk berhasil dicetak.')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Gagal mencetak: $e')));
+              }
             },
             child: const Text(
               'Cetak',

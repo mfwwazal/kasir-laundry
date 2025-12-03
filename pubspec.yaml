@@ -28,12 +28,14 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  blue_thermal_printer: ^1.2.3
   cloud_firestore: ^6.0.3
   cupertino_icons: ^1.0.8
   firebase_auth: ^6.1.1
   firebase_core: ^4.2.0
   flutter:
     sdk: flutter
+  get: ^4.7.3
   intl: ^0.20.2
   lottie: ^3.3.2
 
@@ -53,6 +55,7 @@ flutter:
 
   assets:
     - assets/lottie/success.json
+    - assets/images/
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

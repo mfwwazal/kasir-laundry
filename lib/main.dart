@@ -8,6 +8,9 @@ import 'dashboard_page.dart';
 import 'transaction_page.dart';
 import 'service_page.dart';
 import 'history_page.dart';
+import 'laporan_page.dart';
+import 'laporan_pengeluaran_page.dart';
+import 'laporan_transaksi_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +59,9 @@ class MyApp extends StatelessWidget {
         '/transactions': (context) => const TransactionPage(),
         '/services': (context) => const ServicePage(),
         '/history': (context) => const HistoryPage(),
+        '/reports': (context) => const LaporanPage(),
+        '/money_out': (context) => const LaporanPengeluaranPage(),
+        '/transactions_report': (context) => const LaporanTransaksiPage(),
       },
     );
   }

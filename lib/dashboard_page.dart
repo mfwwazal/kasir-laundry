@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
-
+  
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -16,22 +16,28 @@ class _DashboardPageState extends State<DashboardPage>
   String fullName = '';
   String email = '';
   String role = '';
-  String laundryName = 'Laundry Kita';
-  String laundryAddress = 'Jl. Nusantara No.111';
+  String laundryName = 'Nama toko Laundry';
+  String laundryAddress = 'Alamat Laundry';
   double omzetToday = 0;
-  int masuk = 0;
-  int harusSelesai = 0;
-  int terlambat = 0;
+  int masuk = 20;
+  int Selesai = 20;
+  int terlambat = 9;
 
   String currentTime = '';
   String currentDate = '';
   late Timer _timer;
   late AnimationController _controller;
 
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+
+  final String _laundryDataDocId = 'default';
+
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadLaundryData();
     _updateTime();
 
     _controller = AnimationController(
@@ -61,6 +67,30 @@ class _DashboardPageState extends State<DashboardPage>
     }
   }
 
+  Future<void> _loadLaundryData() async {
+    try {
+      final docSnapshot = await FirebaseFirestore.instance
+          .collection('laundryData')
+          .doc(_laundryDataDocId)
+          .get();
+
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data()!;
+        setState(() {
+          laundryName = data['name'] ?? 'Nama Toko Default';
+          laundryAddress = data['address'] ?? 'Alamat Toko Default';
+        });
+      } else {
+        await FirebaseFirestore.instance
+            .collection('laundryData')
+            .doc(_laundryDataDocId)
+            .set({'name': laundryName, 'address': laundryAddress});
+      }
+    } catch (e) {
+      print("Error loading laundry data: $e");
+    }
+  }
+
   void _updateTime() {
     final now = DateTime.now();
     setState(() {
@@ -69,6 +99,80 @@ class _DashboardPageState extends State<DashboardPage>
       currentDate =
           "${_getDayName(now.weekday)}, ${now.day} ${_getMonthName(now.month)} ${now.year}";
     });
+  }
+
+  Future<void> _updateLaundryData() async {
+    if (_nameController.text.isEmpty || _addressController.text.isEmpty) {
+      return;
+    }
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('laundryData')
+          .doc(_laundryDataDocId)
+          .update({
+            'name': _nameController.text,
+            'address': _addressController.text,
+          });
+
+      setState(() {
+        laundryName = _nameController.text;
+        laundryAddress = _addressController.text;
+      });
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Data toko berhasil diperbarui!')),
+        );
+      }
+    } catch (e) {
+      print("Error updating laundry data: $e");
+    }
+  }
+
+  Future<void> _showEditDialog() async {
+    _nameController.text = laundryName;
+    _addressController.text = laundryAddress;
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Ubah Data Toko'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Nama Toko'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _addressController,
+                  decoration: const InputDecoration(labelText: 'Alamat Toko'),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text(
+                'Simpan',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: _updateLaundryData,
+            ),
+          ],
+        );
+      },
+    );
   }
 
   String _getDayName(int day) {
@@ -110,7 +214,7 @@ class _DashboardPageState extends State<DashboardPage>
     },
     {'title': 'Riwayat', 'icon': Icons.history, 'route': '/history'},
     {'title': 'Laporan', 'icon': Icons.bar_chart, 'route': '/reports'},
-    {'title': 'Parfum', 'icon': Icons.spa, 'route': '/perfume'},
+    {'title': 'Pengeluaran', 'icon': Icons.trending_up, 'route': '/money_out'},
     {'title': 'Pelanggan', 'icon': Icons.people, 'route': '/customers'},
     {'title': 'Kasir', 'icon': Icons.person_pin, 'route': '/cashier'},
   ];
@@ -129,8 +233,8 @@ class _DashboardPageState extends State<DashboardPage>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    "Kasir Laundry",
+                  Text(
+                    fullName.isEmpty ? 'Welcome' : fullName,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 22,
@@ -178,7 +282,7 @@ class _DashboardPageState extends State<DashboardPage>
                     Row(
                       children: [
                         const CircleAvatar(
-                          backgroundImage: AssetImage('assets/profile.jpg'),
+                          backgroundImage: AssetImage('assets/images/profile.jpg'),
                           radius: 26,
                         ),
                         const SizedBox(width: 12),
@@ -195,7 +299,9 @@ class _DashboardPageState extends State<DashboardPage>
                                 ),
                               ),
                               Text(
-                                laundryAddress,
+                                laundryAddress == 'Alamat Laundry'
+                                ? laundryAddress
+                                : '📍 $laundryAddress',
                                 style: const TextStyle(
                                   color: Colors.white70,
                                   fontSize: 13,
@@ -203,6 +309,10 @@ class _DashboardPageState extends State<DashboardPage>
                               ),
                             ],
                           ),
+                        ),
+                        IconButton(
+                          onPressed: _showEditDialog,
+                          icon: const Icon(Icons.edit, color: Colors.white70),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -232,8 +342,8 @@ class _DashboardPageState extends State<DashboardPage>
                         ),
                         _statBox(
                           Icons.schedule,
-                          'Harus Selesai',
-                          harusSelesai.toString(),
+                          'Selesai',
+                          Selesai.toString(),
                           Colors.amberAccent,
                         ),
                         _statBox(
@@ -367,6 +477,8 @@ class _DashboardPageState extends State<DashboardPage>
   void dispose() {
     _controller.dispose();
     _timer.cancel();
+    _nameController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 }

@@ -18,6 +18,9 @@ class _TransactionPageState extends State<TransactionPage>
   String? _selectedProcess;
 
   @override
+  String _searchQuery = "";
+
+  @override
   void initState() {
     super.initState();
     _controller = AnimationController(
@@ -288,13 +291,36 @@ class _TransactionPageState extends State<TransactionPage>
                         double.tryParse(weightController.text.trim()) ?? 0;
 
                     if (docId == null) {
+                      final inputName = nameController.text.trim();
+
+                      // 🔍 Cek nama sudah ada atau belum
+                      final existing = await FirebaseFirestore.instance
+                          .collection('transactions')
+                          .where('name', isEqualTo: inputName)
+                          .get();
+
+                      if (existing.docs.isNotEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Nama pelanggan sudah ada, gunakan nama lain.',
+                            ),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                        return;
+                      }
+
+                      // ⬇ Kalau aman, baru simpan
                       await _addTransaction(
-                        nameController.text.trim(),
+                        inputName,
                         phoneController.text.trim(),
                         tempSelectedProcess!,
                         weight,
                       );
-                      Navigator.pop(context);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
                     } else {
                       await _updateTransaction(
                         docId,
@@ -303,7 +329,9 @@ class _TransactionPageState extends State<TransactionPage>
                         tempSelectedProcess!,
                         weight,
                       );
-                      Navigator.pop(context);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
                     }
                   },
                   child: Text(docId == null ? 'Tambah' : 'Update'),
@@ -315,6 +343,7 @@ class _TransactionPageState extends State<TransactionPage>
       },
     ).whenComplete(() {
       nameController.dispose();
+      phoneController.dispose();
       weightController.dispose();
     });
   }
@@ -350,120 +379,171 @@ class _TransactionPageState extends State<TransactionPage>
           child: FadeTransition(
             opacity: _fadeAnimation,
 
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('transactions')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: Colors.tealAccent),
-                  );
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'Belum ada transaksi',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  );
-                }
-
-                final transactions = snapshot.data!.docs;
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: transactions.length,
-                  itemBuilder: (context, index) {
-                    final DocumentSnapshot doc = transactions[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    final docId = doc.id;
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.white.withOpacity(0.05),
-                            Colors.white.withOpacity(0.02),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.2),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value.trim().toLowerCase();
+                      });
+                    },
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: "Cari nama pelanggan...",
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Colors.tealAccent,
                       ),
-                      child: ListTile(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  TransactionDetailPage(transaction: doc),
+                      filled: true,
+                      fillColor: Colors.white12,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('transactions')
+                        .orderBy('timestamp', descending: true)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.tealAccent,
+                          ),
+                        );
+                      }
+
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'Belum ada transaksi',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        );
+                      }
+
+                      final transactions = snapshot.data!.docs;
+                      final filtered = transactions.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final name = (data['name'] ?? '')
+                            .toString()
+                            .toLowerCase();
+                        return name.contains(_searchQuery);
+                      }).toList();
+
+                      if (filtered.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'Transaksi tidak ditemukan',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final DocumentSnapshot doc = filtered[index];
+                          final data = doc.data() as Map<String, dynamic>;
+                          final docId = doc.id;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white.withOpacity(0.05),
+                                  Colors.white.withOpacity(0.02),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ListTile(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        TransactionDetailPage(transaction: doc),
+                                  ),
+                                );
+                              },
+                              leading: const Icon(
+                                Icons.local_laundry_service,
+                                color: Colors.tealAccent,
+                                size: 32,
+                              ),
+                              title: Text(
+                                data['name'] ?? '-',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                'Proses: ${data['process']} • Berat: ${data['weight']} kg',
+                                style: const TextStyle(color: Colors.white70),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      color: Colors.lightBlueAccent,
+                                    ),
+                                    onPressed: () => _showTransactionDialog(
+                                      docId: docId,
+                                      currentName: data['name'],
+                                      currentPhone: data['phone'],
+                                      currentProcess: data['process'],
+                                      currentWeight: (data['weight'] as num)
+                                          .toDouble(),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.redAccent,
+                                    ),
+                                    onPressed: () =>
+                                        _showDeleteConfirmationDialog(docId),
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         },
-
-                        leading: const Icon(
-                          Icons.local_laundry_service,
-                          color: Colors.tealAccent,
-                          size: 32,
-                        ),
-                        title: Text(
-                          data['name'] ?? '-',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Proses: ${data['process']} • Berat: ${data['weight']} kg',
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(
-                                Icons.edit,
-                                color: Colors.lightBlueAccent,
-                              ),
-                              onPressed: () => _showTransactionDialog(
-                                docId: docId,
-                                currentName: data['name'],
-                                currentPhone: data['phone'],
-                                currentProcess: data['process'],
-                                currentWeight: (data['weight'] as num)
-                                    .toDouble(),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.delete,
-                                color: Colors.redAccent,
-                              ),
-                              onPressed: () =>
-                                  _showDeleteConfirmationDialog(docId),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
         ),
